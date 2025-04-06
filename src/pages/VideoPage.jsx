@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1"
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 );
 
 export default function VideoPage() {
@@ -32,17 +32,25 @@ export default function VideoPage() {
 
   const extractYouTubeId = (url) => {
     try {
-      const parsedUrl = new URL(url);
-      if (parsedUrl.hostname.includes("youtu.be")) {
-        return parsedUrl.pathname.slice(1);
-      }
-      if (parsedUrl.hostname.includes("youtube.com")) {
-        return parsedUrl.searchParams.get("v");
+      const parsed = new URL(url);
+      if (parsed.hostname.includes("youtu.be")) {
+        return parsed.pathname.slice(1);
+      } else if (parsed.hostname.includes("youtube.com")) {
+        return parsed.searchParams.get("v");
       }
     } catch {
       return null;
     }
-    return null;
+  };
+
+  const fetchTitle = async (url) => {
+    try {
+      const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`);
+      const json = await res.json();
+      return json.title || "YouTube Video";
+    } catch {
+      return "YouTube Video";
+    }
   };
 
   const addVideo = async () => {
@@ -50,27 +58,18 @@ export default function VideoPage() {
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const title = await fetchVideoTitle(videoId);
 
     const exists = await supabase.from("videos").select().eq("url", cleanUrl);
-    if (exists?.data?.length > 0) {
+    if (exists.data?.length > 0) {
       alert("⚠️ Dieses Video ist bereits vorhanden.");
       return;
     }
 
-    await supabase.from("videos").insert({ url: cleanUrl, title, category: "pool" });
-    fetchVideos();
-    setInput("");
-  };
+    const title = await fetchTitle(cleanUrl);
 
-  const fetchVideoTitle = async (videoId) => {
-    try {
-      const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
-      const data = await res.json();
-      return data.title || `YouTube Video (${videoId})`;
-    } catch {
-      return `YouTube Video (${videoId})`;
-    }
+    await supabase.from("videos").insert({ url: cleanUrl, title, category: "pool" });
+    setInput("");
+    fetchVideos();
   };
 
   const moveVideo = async (video, toCategory) => {
@@ -92,7 +91,7 @@ export default function VideoPage() {
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               className="w-full h-48 mb-2 rounded"
-            ></iframe>
+            />
             <p className="text-sm text-white mb-2">{video.title}</p>
             <div className="flex flex-wrap gap-2">
               {Object.keys(columns).map(
@@ -118,10 +117,7 @@ export default function VideoPage() {
     <div className="min-h-screen bg-[#0e0e10] text-white p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-[#9146FF]">🎥 Video-Bereich</h2>
-        <a
-          href="/"
-          className="text-white text-sm hover:underline bg-[#9146FF] px-3 py-1 rounded"
-        >
+        <a href="/" className="text-white text-sm hover:underline bg-[#9146FF] px-3 py-1 rounded">
           Zurück zur Hauptseite
         </a>
       </div>
