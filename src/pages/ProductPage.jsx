@@ -30,7 +30,7 @@ export default function ProductPage() {
   }, []);
 
   const sanitizeAmazonUrl = (url) => {
-    const match = url.match(/\/dp\/(\w+)/);
+    const match = url.match(/\/dp\/([\w\d]+)/);
     return match ? `https://www.amazon.de/dp/${match[1]}` : url;
   };
 
@@ -40,18 +40,17 @@ export default function ProductPage() {
     try {
       const cleanUrl = sanitizeAmazonUrl(input);
       const proxy = "https://api.allorigins.win/raw?url=";
-      const htmlText = await fetch(`${proxy}${encodeURIComponent(cleanUrl)}`).then(res => res.text());
+      const htmlText = await fetch(`${proxy}${encodeURIComponent(cleanUrl)}`).then((res) => res.text());
 
       const doc = new DOMParser().parseFromString(htmlText, "text/html");
 
       const title =
         doc.querySelector("meta[property='og:title']")?.content ||
         doc.querySelector("title")?.innerText ||
-        "Unbekannter Titel";
+        "Amazon Produkt";
 
       const image =
         doc.querySelector("meta[property='og:image']")?.content ||
-        doc.querySelector("link[rel='image_src']")?.href ||
         doc.querySelector("img")?.src ||
         "";
 
@@ -91,24 +90,33 @@ export default function ProductPage() {
       <div className="space-y-4">
         {columns[key].map((product, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
-            <img src={product.image} alt={product.title} className="w-full h-48 object-cover rounded mb-2" />
+            {product.image && (
+              <img
+                src={product.image}
+                alt={product.title}
+                className="w-full h-48 object-cover rounded mb-2"
+              />
+            )}
             <p className="text-sm text-white mb-2">{product.title}</p>
             <div className="flex flex-wrap gap-2 mb-2">
-              {[1,2,3,4,5,6,7,8,9,10].map((n) => (
-                <span key={n} className="text-xs bg-gray-700 px-2 py-1 rounded">{n}</span>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                <span key={n} className="text-xs bg-gray-700 px-2 py-1 rounded">
+                  {n}
+                </span>
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {Object.keys(columns).map((cat) =>
-                cat !== key ? (
-                  <button
-                    key={cat}
-                    onClick={() => moveProduct(product, cat)}
-                    className="bg-[#9146FF] px-2 py-1 rounded text-sm"
-                  >
-                    Zu {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </button>
-                ) : null
+              {Object.keys(columns).map(
+                (cat) =>
+                  cat !== key && (
+                    <button
+                      key={cat}
+                      onClick={() => moveProduct(product, cat)}
+                      className="bg-[#9146FF] px-2 py-1 rounded text-sm"
+                    >
+                      Zu {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </button>
+                  )
               )}
             </div>
           </div>
