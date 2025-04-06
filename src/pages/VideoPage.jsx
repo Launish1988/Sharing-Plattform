@@ -1,88 +1,81 @@
+// Datei: src/pages/VideoPage.jsx
 import React, { useState } from "react";
+import DraggableCard from "../components/DraggableCard";
 
 export default function VideoPage() {
   const [input, setInput] = useState("");
-  const [videoColumns, setVideoColumns] = useState({
-    pool: [],
-    kai: [],
-    steffen: [],
-    archiv: [],
-  });
+  const [videos, setVideos] = useState([]);
 
   const addVideo = () => {
     if (!input) return;
     const newVideo = {
       id: Date.now(),
       url: input,
+      location: "pool",
     };
-    setVideoColumns((prev) => ({
-      ...prev,
-      pool: [newVideo, ...prev.pool],
-    }));
+    setVideos([newVideo, ...videos]);
     setInput("");
   };
 
-  const onDragStart = (e, fromColumn, videoId) => {
-    e.dataTransfer.setData("fromColumn", fromColumn);
-    e.dataTransfer.setData("videoId", videoId);
+  const moveVideo = (id, newLocation) => {
+    setVideos(
+      videos.map((video) =>
+        video.id === id ? { ...video, location: newLocation } : video
+      )
+    );
   };
 
-  const onDrop = (e, toColumn) => {
-    const fromColumn = e.dataTransfer.getData("fromColumn");
-    const videoId = parseInt(e.dataTransfer.getData("videoId"));
-
-    if (!fromColumn || !videoId || fromColumn === toColumn) return;
-
-    setVideoColumns((prev) => {
-      const videoToMove = prev[fromColumn].find((v) => v.id === videoId);
-      if (!videoToMove) return prev;
-
-      return {
-        ...prev,
-        [fromColumn]: prev[fromColumn].filter((v) => v.id !== videoId),
-        [toColumn]: [videoToMove, ...prev[toColumn]],
-      };
-    });
+  const getEmbedUrl = (url) => {
+    try {
+      const urlObj = new URL(url);
+      const videoId = urlObj.searchParams.get("v");
+      return `https://www.youtube.com/embed/${videoId}`;
+    } catch {
+      return null;
+    }
   };
 
-  const allowDrop = (e) => {
-    e.preventDefault();
-  };
-
-  const renderColumn = (title, key) => (
-    <div
-      onDrop={(e) => onDrop(e, key)}
-      onDragOver={allowDrop}
-      className="bg-gray-900 rounded-lg p-4 flex-1 min-h-[300px]"
-    >
-      <h3 className="text-xl font-semibold text-[#9146FF] mb-2">{title}</h3>
-      {videoColumns[key].map((video) => (
-        <div
-          key={video.id}
-          draggable
-          onDragStart={(e) => onDragStart(e, key, video.id)}
-          className="mb-4 p-2 bg-gray-800 rounded shadow"
-        >
-          <iframe
-            className="w-full h-48 rounded"
-            src={video.url.replace("watch?v=", "embed/")}
-            allowFullScreen
-          ></iframe>
-        </div>
-      ))}
+  const renderColumn = (label, location) => (
+    <div className="w-full md:w-1/3 p-2 bg-[#1f1f23] rounded">
+      <h3 className="text-xl font-bold mb-2 text-[#9146FF]">{label}</h3>
+      {videos
+        .filter((v) => v.location === location)
+        .map((video) => {
+          const embedUrl = getEmbedUrl(video.url);
+          return (
+            <DraggableCard
+              key={video.id}
+              video={video}
+              onMove={moveVideo}
+              locations={["pool", "kai", "steffen"]}
+            >
+              <div className="p-4 bg-gray-900 rounded-lg">
+                {embedUrl ? (
+                  <iframe
+                    className="w-full h-48 rounded"
+                    src={embedUrl}
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <p className="text-red-400">❌ Ungültiger Link</p>
+                )}
+              </div>
+            </DraggableCard>
+          );
+        })}
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white p-6">
-      <h2 className="text-3xl font-bold text-[#9146FF] mb-6">🎬 Video-Bereich</h2>
+      <h2 className="text-3xl font-bold text-[#9146FF] mb-4">📺 Video-Bereich</h2>
 
-      <div className="flex gap-4 mb-8">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="YouTube-Link hier einfügen..."
-          className="flex-1 px-4 py-2 rounded bg-gray-800 text-white"
+          className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
           onClick={addVideo}
@@ -92,11 +85,10 @@ export default function VideoPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="flex flex-col md:flex-row gap-4">
         {renderColumn("Pool", "pool")}
         {renderColumn("Kai", "kai")}
         {renderColumn("Steffen", "steffen")}
-        {renderColumn("Archiv", "archiv")}
       </div>
     </div>
   );
