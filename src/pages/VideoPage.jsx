@@ -1,6 +1,12 @@
-const [videoColumns, setVideoColumns] = useState({
-  pool: [],
-  kai: [],
-  steffen: [],
-  archiv: []
-});
+const addVideo = () => {
+  if (!input) return;
+  const newVideo = {
+    id: Date.now(),
+    url: input,
+  };
+  setVideoColumns((prev) => ({
+    ...prev,
+    pool: [newVideo, ...prev.pool],
+  }));
+  setInput("");
+};
