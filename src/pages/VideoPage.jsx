@@ -1,84 +1,77 @@
 // Datei: src/pages/VideoPage.jsx
 import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://kmbdieietszbfsbrldtx.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1"
+);
 
 export default function VideoPage() {
   const [input, setInput] = useState("");
-  const [videoColumns, setVideoColumns] = useState({
-    pool: [],
-    kai: [],
-    steffen: [],
-    archiv: [],
-  });
+  const [columns, setColumns] = useState({ pool: [], kai: [], steffen: [], archiv: [] });
 
   useEffect(() => {
-    const stored = localStorage.getItem("videos");
-    if (stored) setVideoColumns(JSON.parse(stored));
+    const fetchVideos = async () => {
+      const { data } = await supabase.from("videos").select();
+      if (!data) return;
+      const cols = { pool: [], kai: [], steffen: [], archiv: [] };
+      data.forEach((v) => cols[v.category].push(v));
+      setColumns(cols);
+    };
+    fetchVideos();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem("videos", JSON.stringify(videoColumns));
-  }, [videoColumns]);
-
   const addVideo = async () => {
-    if (!input) return;
-    const videoId = input.split("v=")[1]?.split("&")[0];
-    if (!videoId) return alert("❌ Ungültiger YouTube-Link!");
+    if (!input.includes("youtube")) return alert("❌ Nur YouTube-Links erlaubt!");
+    const id = input.split("v=")[1]?.substring(0, 11);
+    if (!id) return alert("❌ Kein valider YouTube-Link!");
 
-    const title = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`)
-      .then((res) => res.json())
-      .then((data) => data.title || "YouTube Video")
-      .catch(() => "YouTube Video");
+    const api = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${id}`;
+    const res = await fetch(api);
+    const { title } = await res.json();
 
-    const newVideo = {
-      id: Date.now(),
-      url: `https://www.youtube.com/embed/${videoId}`,
-      title,
-    };
-
-    setVideoColumns((prev) => ({
-      ...prev,
-      pool: [newVideo, ...prev.pool],
-    }));
+    const video = { id, title, category: "pool" };
+    await supabase.from("videos").insert(video);
+    setColumns((prev) => ({ ...prev, pool: [video, ...prev.pool] }));
     setInput("");
   };
 
-  const moveVideo = (id, from, to) => {
-    const item = videoColumns[from].find((v) => v.id === id);
-    if (!item) return;
-    setVideoColumns((prev) => ({
-      ...prev,
-      [from]: prev[from].filter((v) => v.id !== id),
-      [to]: [item, ...prev[to]],
-    }));
+  const moveVideo = async (video, to) => {
+    await supabase.from("videos").update({ category: to }).eq("id", video.id);
+    setColumns((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        next[key] = next[key].filter((v) => v.id !== video.id);
+      });
+      next[to].unshift({ ...video, category: to });
+      return next;
+    });
   };
 
-  const renderColumn = (title, key) => (
+  const renderColumn = (label, key) => (
     <div className="flex-1 bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
-      <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
+      <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{label}</h3>
       <div className="space-y-4">
-        {videoColumns[key].map((video) => (
+        {columns[key].map((video) => (
           <div key={video.id} className="bg-gray-900 p-3 rounded-lg">
             <iframe
-              className="w-full h-48 rounded mb-2"
-              src={video.url}
+              className="w-full aspect-video rounded"
+              src={`https://www.youtube.com/embed/${video.id}`}
               title={video.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
-            <div className="text-sm mb-2">{video.title}</div>
-            <div className="flex flex-wrap gap-2">
-              {Object.keys(videoColumns).map(
-                (col) =>
-                  col !== key && (
-                    <button
-                      key={col}
-                      onClick={() => moveVideo(video.id, key, col)}
-                      className="text-xs text-white bg-[#9146FF] hover:bg-[#772ce8] px-2 py-1 rounded"
-                    >
-                      Zu {col.charAt(0).toUpperCase() + col.slice(1)}
-                    </button>
-                  )
-              )}
+            <div className="text-sm mt-1 text-white">{video.title}</div>
+            <div className="flex gap-2 mt-2">
+              {Object.keys(columns).filter((k) => k !== key).map((target) => (
+                <button
+                  key={target}
+                  onClick={() => moveVideo(video, target)}
+                  className="text-xs bg-[#9146FF] hover:bg-[#772ce8] text-white px-2 py-1 rounded"
+                >
+                  Zu {target.charAt(0).toUpperCase() + target.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
         ))}
@@ -97,12 +90,11 @@ export default function VideoPage() {
           Zurück zur Hauptseite
         </a>
       </div>
-
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="YouTube-Link hier einfügen…"
+          placeholder="YouTube-Link hier einfügen..."
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
@@ -112,7 +104,6 @@ export default function VideoPage() {
           Hinzufügen
         </button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {renderColumn("Pool", "pool")}
         {renderColumn("Kai", "kai")}
