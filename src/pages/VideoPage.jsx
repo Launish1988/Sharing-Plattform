@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+// ❗ DEIN API-KEY hier vollständig einfügen
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." // 👈 Vollständiger API Key hier
 );
 
 export default function VideoPage() {
@@ -25,7 +26,6 @@ export default function VideoPage() {
       console.error("❌ Fehler beim Laden der Videos:", error);
       return;
     }
-    console.log("🎥 Videos geladen:", data);
 
     const cols = { pool: [], kai: [], steffen: [], archiv: [] };
     data.forEach((v) => {
@@ -37,10 +37,22 @@ export default function VideoPage() {
   };
 
   const extractYouTubeId = (url) => {
-    const match = url.match(
-      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/
-    );
-    return match ? match[1] : null;
+    try {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname;
+      const searchParams = parsed.searchParams;
+
+      if (hostname.includes("youtu.be")) {
+        return parsed.pathname.slice(1);
+      } else if (hostname.includes("youtube.com")) {
+        return searchParams.get("v");
+      }
+
+      return null;
+    } catch (err) {
+      console.error("❌ Fehler beim Parsen der URL:", err);
+      return null;
+    }
   };
 
   const fetchTitle = async (url) => {
@@ -56,7 +68,10 @@ export default function VideoPage() {
   const addVideo = async () => {
     const videoId = extractYouTubeId(input);
     console.log("📺 Video ID:", videoId);
-    if (!videoId) return alert("❌ Ungültiger YouTube-Link");
+    if (!videoId) {
+      alert("❌ Ungültiger YouTube-Link");
+      return;
+    }
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
