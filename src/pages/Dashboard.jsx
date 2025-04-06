@@ -1,37 +1,29 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   return (
-    <div style={{ fontFamily: "sans-serif", padding: "2rem", textAlign: "center" }}>
-      <h1 style={{ fontSize: "2.5rem", color: "#9146FF" }}>🎮 Sharing Plattform – Twitch Style</h1>
-      <p style={{ fontSize: "1.2rem", marginTop: "1rem" }}>
+    <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col items-center justify-center p-6">
+      <h1 className="text-4xl font-bold text-[#9146FF] mb-4 flex items-center gap-2">
+        🎮 Sharing Plattform – Twitch Style
+      </h1>
+      <p className="mb-6 text-center text-lg">
         Willkommen! Hier kannst du mit Freunden Inhalte teilen, bewerten und kommentieren.
       </p>
 
-      <div style={{ marginTop: "3rem" }}>
-        <button style={{
-          backgroundColor: "#9146FF",
-          color: "white",
-          padding: "1rem 2rem",
-          fontSize: "1rem",
-          border: "none",
-          borderRadius: "1rem",
-          cursor: "pointer",
-          margin: "0.5rem"
-        }}>
-          📺 Video-Bereich
+      <div className="flex gap-6">
+        <button
+          onClick={() => navigate("/videos")}
+          className="bg-[#9146FF] hover:bg-[#772ce8] text-white font-semibold py-3 px-6 rounded-lg shadow-md flex items-center gap-2"
+        >
+          🎬 Video-Bereich
         </button>
-
-        <button style={{
-          backgroundColor: "#2c2f33",
-          color: "white",
-          padding: "1rem 2rem",
-          fontSize: "1rem",
-          border: "none",
-          borderRadius: "1rem",
-          cursor: "pointer",
-          margin: "0.5rem"
-        }}>
+        <button
+          onClick={() => navigate("/produkte")}
+          className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md flex items-center gap-2"
+        >
           🛒 Produkt-Empfehlungen
         </button>
       </div>
