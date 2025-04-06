@@ -1,5 +1,11 @@
 // Datei: src/pages/ProductPage.jsx
 import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  "https://kmbdieietszbfsbrldtx.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1"
+);
 
 export default function ProductPage() {
   const [input, setInput] = useState("");
@@ -11,70 +17,61 @@ export default function ProductPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem("products");
-    if (stored) setProductColumns(JSON.parse(stored));
+    const fetchProducts = async () => {
+      const { data } = await supabase.from("products").select();
+      if (!data) return;
+      const cols = { pool: [], kai: [], steffen: [], archiv: [] };
+      data.forEach((p) => {
+        cols[p.category].push(p);
+      });
+      setProductColumns(cols);
+    };
+    fetchProducts();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("products", JSON.stringify(productColumns));
-  }, [productColumns]);
 
   const addProduct = async () => {
     if (!input) return;
     try {
-      const proxy = "https://api.allorigins.win/get?url=";
+      const proxy = "https://api.allorigins.win/raw?url=";
       const url = encodeURIComponent(input);
       const response = await fetch(`${proxy}${url}`);
-      const data = await response.json();
-      const doc = new DOMParser().parseFromString(data.contents, "text/html");
+      const htmlText = await response.text();
+      const doc = new DOMParser().parseFromString(htmlText, "text/html");
 
-      const title = doc.querySelector("title")?.innerText || "Unbekanntes Produkt";
-      const img = doc.querySelector("meta[property='og:image']")?.content || "";
+      const title =
+        doc.querySelector("meta[property='og:title']")?.content ||
+        doc.querySelector("title")?.innerText ||
+        "Unbekanntes Produkt";
+      const img =
+        doc.querySelector("meta[property='og:image']")?.content || "";
 
       const newProduct = {
-        id: Date.now(),
         url: input,
         title,
-        img,
+        image: img,
         rating: null,
+        category: "pool",
+        owner: "user",
       };
 
-      setProductColumns((prev) => ({
-        ...prev,
-        pool: [newProduct, ...prev.pool],
-      }));
+      await supabase.from("products").insert(newProduct);
+      setProductColumns((prev) => ({ ...prev, pool: [newProduct, ...prev.pool] }));
       setInput("");
-    } catch {
+    } catch (e) {
+      console.error(e);
       alert("❌ Produkt konnte nicht geladen werden.");
     }
   };
 
-  const moveProduct = (id, from, to) => {
-    const item = productColumns[from].find((p) => p.id === id);
-    if (!item) return;
-    setProductColumns((prev) => ({
-      ...prev,
-      [from]: prev[from].filter((p) => p.id !== id),
-      [to]: [item, ...prev[to]],
-    }));
-  };
-
-  const updateRating = (id, column, value) => {
-    setProductColumns((prev) => ({
-      ...prev,
-      [column]: prev[column].map((p) => (p.id === id ? { ...p, rating: value } : p)),
-    }));
-  };
-
   const renderColumn = (title, key) => (
-    <div className="flex-1 bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
+    <div className="bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
       <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
       <div className="space-y-4">
-        {productColumns[key].map((product) => (
-          <div key={product.id} className="bg-gray-900 p-3 rounded-lg">
-            {product.img && (
+        {productColumns[key].map((product, idx) => (
+          <div key={idx} className="bg-gray-900 p-3 rounded-lg">
+            {product.image && (
               <img
-                src={product.img}
+                src={product.image}
                 alt={product.title}
                 className="w-full h-40 object-contain mb-2"
               />
@@ -87,11 +84,22 @@ export default function ProductPage() {
             >
               {product.title}
             </a>
-            <div className="flex gap-1 mb-2">
+            <div className="flex flex-wrap gap-1 mb-2">
               {[...Array(10)].map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => updateRating(product.id, key, i + 1)}
+                  onClick={async () => {
+                    await supabase
+                      .from("products")
+                      .update({ rating: i + 1 })
+                      .eq("url", product.url);
+                    setProductColumns((prev) => ({
+                      ...prev,
+                      [key]: prev[key].map((p) =>
+                        p.url === product.url ? { ...p, rating: i + 1 } : p
+                      ),
+                    }));
+                  }}
                   className={`px-1 py-0.5 rounded text-xs ${
                     product.rating === i + 1 ? "bg-[#9146FF] text-white" : "bg-gray-700"
                   }`}
@@ -99,20 +107,6 @@ export default function ProductPage() {
                   {i + 1}
                 </button>
               ))}
-            </div>
-            <div className="flex gap-2">
-              {Object.keys(productColumns).map(
-                (col) =>
-                  col !== key && (
-                    <button
-                      key={col}
-                      onClick={() => moveProduct(product.id, key, col)}
-                      className="text-xs text-white bg-[#9146FF] hover:bg-[#772ce8] px-2 py-1 rounded"
-                    >
-                      Zu {col.charAt(0).toUpperCase() + col.slice(1)}
-                    </button>
-                  )
-              )}
             </div>
           </div>
         ))}
@@ -132,7 +126,7 @@ export default function ProductPage() {
         </a>
       </div>
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -147,7 +141,7 @@ export default function ProductPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {renderColumn("Pool", "pool")}
         {renderColumn("Kai", "kai")}
         {renderColumn("Steffen", "steffen")}
