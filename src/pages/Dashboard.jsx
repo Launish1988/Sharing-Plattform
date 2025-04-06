@@ -6,12 +6,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white flex flex-col items-center justify-center p-6">
-      <h1 className="text-4xl font-bold text-[#9146FF] mb-4 flex items-center gap-2">
-        🎮 Sharing Plattform – Twitch Style
+      <h1 className="text-4xl font-bold text-[#9146FF] mb-10">
+        Brudi Sharing Plattform
       </h1>
-      <p className="mb-6 text-center text-lg">
-        Willkommen! Hier kannst du mit Freunden Inhalte teilen, bewerten und kommentieren.
-      </p>
 
       <div className="flex gap-6">
         <button
