@@ -16,6 +16,10 @@ export default function VideoPage() {
     archiv: [],
   });
 
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
   const fetchVideos = async () => {
     const { data } = await supabase.from("videos").select();
     if (!data) return;
@@ -25,10 +29,6 @@ export default function VideoPage() {
     });
     setColumns(cols);
   };
-
-  useEffect(() => {
-    fetchVideos();
-  }, []);
 
   const extractYouTubeId = (url) => {
     try {
@@ -49,10 +49,16 @@ export default function VideoPage() {
     const videoId = extractYouTubeId(input);
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
     const title = `YouTube Video (${videoId})`;
 
-    await supabase.from("videos").insert({ url, title, category: "pool" });
+    const exists = await supabase.from("videos").select().eq("url", cleanUrl);
+    if (exists?.data?.length > 0) {
+      alert("⚠️ Dieses Video ist bereits vorhanden.");
+      return;
+    }
+
+    await supabase.from("videos").insert({ url: cleanUrl, title, category: "pool" });
     fetchVideos();
     setInput("");
   };
