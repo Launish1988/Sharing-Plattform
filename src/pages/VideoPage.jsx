@@ -30,7 +30,6 @@ export default function VideoPage() {
     fetchVideos();
   }, []);
 
-  // 🔧 Verbesserter YouTube-Parser (arbeitet mit allen Formaten)
   const extractYouTubeId = (url) => {
     try {
       const parsedUrl = new URL(url);
@@ -40,10 +39,10 @@ export default function VideoPage() {
       if (parsedUrl.hostname.includes("youtube.com")) {
         return parsedUrl.searchParams.get("v");
       }
-      return null;
     } catch {
       return null;
     }
+    return null;
   };
 
   const addVideo = async () => {
@@ -60,10 +59,7 @@ export default function VideoPage() {
 
   const moveVideo = async (video, toCategory) => {
     if (video.category === toCategory) return;
-    await supabase
-      .from("videos")
-      .update({ category: toCategory })
-      .eq("url", video.url);
+    await supabase.from("videos").update({ category: toCategory }).eq("url", video.url);
     fetchVideos();
   };
 
@@ -74,9 +70,7 @@ export default function VideoPage() {
         {columns[key].map((video) => (
           <div key={video.url} className="bg-gray-900 p-3 rounded-lg">
             <iframe
-              src={`https://www.youtube.com/embed/${extractYouTubeId(
-                video.url
-              )}`}
+              src={`https://www.youtube.com/embed/${extractYouTubeId(video.url)}`}
               title={video.title}
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
