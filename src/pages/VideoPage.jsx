@@ -9,83 +9,77 @@ const supabase = createClient(
 
 export default function VideoPage() {
   const [input, setInput] = useState("");
-  const [columns, setColumns] = useState({
-    pool: [],
-    kai: [],
-    steffen: [],
-    archiv: [],
-  });
+  const [columns, setColumns] = useState({ pool: [], kai: [], steffen: [], archiv: [] });
+
+  const fetchVideos = async () => {
+    const { data } = await supabase.from("videos").select();
+    if (!data) return;
+    const cols = { pool: [], kai: [], steffen: [], archiv: [] };
+    data.forEach((v) => {
+      cols[v.category].push(v);
+    });
+    setColumns(cols);
+  };
 
   useEffect(() => {
-    const fetchVideos = async () => {
-      const { data } = await supabase.from("videos").select();
-      if (!data) return;
-      const cols = { pool: [], kai: [], steffen: [], archiv: [] };
-      data.forEach((v) => {
-        cols[v.category].push(v);
-      });
-      setColumns(cols);
-    };
     fetchVideos();
   }, []);
 
-  const extractVideoId = (url) => {
-    const match = url.match(
-      /(?:youtube\.com\/.*v=|youtu\.be\/)([^&\n?#]+)/i
-    );
-    return match ? match[1] : null;
-  };
-
   const addVideo = async () => {
-    if (!input) return;
-    const videoId = extractVideoId(input);
-    if (!videoId) return alert("❌ Ungültiger YouTube-Link");
+    if (!input.includes("youtube")) return alert("Nur YouTube-Links erlaubt.");
+    const videoId = input.split("v=")[1]?.split("&")[0];
+    if (!videoId) return alert("Ungültiger Link");
 
-    const title = `YouTube Video ${videoId}`;
-    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const title = await fetch(`https://noembed.com/embed?url=${input}`)
+      .then(res => res.json())
+      .then(data => data.title || "Video");
 
-    const newVideo = { url, videoId, title, category: "pool" };
+    const newVideo = {
+      url: input,
+      videoId,
+      title,
+      category: "pool",
+    };
 
     await supabase.from("videos").insert(newVideo);
-    setColumns((prev) => ({ ...prev, pool: [newVideo, ...prev.pool] }));
+    fetchVideos();
     setInput("");
   };
 
   const moveVideo = async (video, toCategory) => {
+    if (video.category === toCategory) return;
     await supabase.from("videos").update({ category: toCategory }).eq("url", video.url);
-    setColumns((prev) => {
-      const updated = { ...prev };
-      updated[video.category] = updated[video.category].filter((v) => v.url !== video.url);
-      updated[toCategory] = [video, ...updated[toCategory]];
-      return updated;
-    });
+    fetchVideos();
   };
 
   const renderColumn = (title, key) => (
     <div className="bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
       <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
       <div className="space-y-4">
-        {columns[key].map((video, idx) => (
-          <div key={idx} className="bg-gray-900 p-3 rounded-lg">
+        {columns[key].map((video) => (
+          <div key={video.url} className="bg-gray-900 p-3 rounded-lg">
             <iframe
-              className="w-full h-48 rounded mb-2"
+              width="100%"
+              height="200"
               src={`https://www.youtube.com/embed/${video.videoId}`}
-              title={video.title}
-              frameBorder="0"
+              title="YouTube video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
+              className="rounded mb-2"
             ></iframe>
             <p className="text-sm text-white mb-2">{video.title}</p>
             <div className="flex flex-wrap gap-2">
-              {Object.keys(columns).map((cat) =>
-                cat !== key ? (
-                  <button
-                    key={cat}
-                    onClick={() => moveVideo(video, cat)}
-                    className="bg-[#9146FF] px-2 py-1 rounded text-sm"
-                  >
-                    Zu {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </button>
-                ) : null
+              {Object.keys(columns).map(
+                (cat) =>
+                  cat !== key && (
+                    <button
+                      key={cat}
+                      onClick={() => moveVideo(video, cat)}
+                      className="bg-[#9146FF] px-2 py-1 rounded text-sm"
+                    >
+                      Zu {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </button>
+                  )
               )}
             </div>
           </div>
@@ -97,7 +91,7 @@ export default function VideoPage() {
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-[#9146FF]">🎬 Video-Bereich</h2>
+        <h2 className="text-3xl font-bold text-[#9146FF]">🎥 Video-Bereich</h2>
         <a
           href="/"
           className="text-white text-sm hover:underline bg-[#9146FF] px-3 py-1 rounded"
@@ -110,7 +104,7 @@ export default function VideoPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="YouTube-Link hier einfügen…"
+          placeholder="YouTube-Link hier einfügen..."
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
