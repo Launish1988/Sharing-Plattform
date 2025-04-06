@@ -9,7 +9,12 @@ const supabase = createClient(
 
 export default function VideoPage() {
   const [input, setInput] = useState("");
-  const [columns, setColumns] = useState({ pool: [], kai: [], steffen: [], archiv: [] });
+  const [columns, setColumns] = useState({
+    pool: [],
+    kai: [],
+    steffen: [],
+    archiv: [],
+  });
 
   const fetchVideos = async () => {
     const { data } = await supabase.from("videos").select();
@@ -25,23 +30,19 @@ export default function VideoPage() {
     fetchVideos();
   }, []);
 
+  const extractYouTubeId = (url) => {
+    const match = url.match(/(?:youtube\.com.*[?&]v=|youtu\.be\/)([\w-]{11})/);
+    return match ? match[1] : null;
+  };
+
   const addVideo = async () => {
-    if (!input.includes("youtube")) return alert("Nur YouTube-Links erlaubt.");
-    const videoId = input.split("v=")[1]?.split("&")[0];
-    if (!videoId) return alert("Ungültiger Link");
+    const videoId = extractYouTubeId(input);
+    if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
-    const title = await fetch(`https://noembed.com/embed?url=${input}`)
-      .then(res => res.json())
-      .then(data => data.title || "Video");
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
+    const title = `YouTube Video (${videoId})`;
 
-    const newVideo = {
-      url: input,
-      videoId,
-      title,
-      category: "pool",
-    };
-
-    await supabase.from("videos").insert(newVideo);
+    await supabase.from("videos").insert({ url, title, category: "pool" });
     fetchVideos();
     setInput("");
   };
@@ -59,13 +60,12 @@ export default function VideoPage() {
         {columns[key].map((video) => (
           <div key={video.url} className="bg-gray-900 p-3 rounded-lg">
             <iframe
-              width="100%"
-              height="200"
-              src={`https://www.youtube.com/embed/${video.videoId}`}
-              title="YouTube video"
+              src={`https://www.youtube.com/embed/${extractYouTubeId(video.url)}`}
+              title={video.title}
+              frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              className="rounded mb-2"
+              className="w-full h-48 mb-2 rounded"
             ></iframe>
             <p className="text-sm text-white mb-2">{video.title}</p>
             <div className="flex flex-wrap gap-2">
@@ -104,7 +104,7 @@ export default function VideoPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="YouTube-Link hier einfügen..."
+          placeholder="YouTube-Link einfügen"
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
