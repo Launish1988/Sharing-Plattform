@@ -21,25 +21,29 @@ export default function ProductPage() {
       const { data } = await supabase.from("products").select();
       if (!data) return;
       const cols = { pool: [], kai: [], steffen: [], archiv: [] };
-      data.forEach((p) => cols[p.category].push(p));
+      data.forEach((p) => {
+        cols[p.category].push(p);
+      });
       setColumns(cols);
     };
     fetchProducts();
   }, []);
 
   const sanitizeAmazonUrl = (url) => {
-    const match = url.match(/(https:\/\/www\.amazon\.de\/dp\/[A-Z0-9]+)/);
-    return match ? match[1] : url;
+    const match = url.match(/\/dp\/(\w+)/);
+    return match ? `https://www.amazon.de/dp/${match[1]}` : url;
   };
 
   const addProduct = async () => {
     if (!input) return;
+
     try {
       const cleanUrl = sanitizeAmazonUrl(input);
       const proxy = "https://api.allorigins.win/raw?url=";
       const htmlText = await fetch(`${proxy}${encodeURIComponent(cleanUrl)}`).then(res => res.text());
 
       const doc = new DOMParser().parseFromString(htmlText, "text/html");
+
       const title =
         doc.querySelector("meta[property='og:title']")?.content ||
         doc.querySelector("title")?.innerText ||
@@ -47,7 +51,14 @@ export default function ProductPage() {
 
       const image =
         doc.querySelector("meta[property='og:image']")?.content ||
-        "https://via.placeholder.com/150";
+        doc.querySelector("link[rel='image_src']")?.href ||
+        doc.querySelector("img")?.src ||
+        "";
+
+      if (!image || !title || title.toLowerCase().includes("amazon.de")) {
+        alert("❌ Produktdetails konnten nicht vollständig geladen werden.");
+        return;
+      }
 
       const newProduct = {
         url: cleanUrl,
@@ -65,15 +76,10 @@ export default function ProductPage() {
   };
 
   const moveProduct = async (product, toCategory) => {
-    await supabase
-      .from("products")
-      .update({ category: toCategory })
-      .eq("url", product.url);
+    await supabase.from("products").update({ category: toCategory }).eq("url", product.url);
     setColumns((prev) => {
       const updated = { ...prev };
-      updated[product.category] = updated[product.category].filter(
-        (p) => p.url !== product.url
-      );
+      updated[product.category] = updated[product.category].filter((p) => p.url !== product.url);
       updated[toCategory] = [product, ...updated[toCategory]];
       return updated;
     });
@@ -85,21 +91,14 @@ export default function ProductPage() {
       <div className="space-y-4">
         {columns[key].map((product, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
-            <img
-              src={product.image}
-              alt={product.title}
-              className="w-full h-48 object-contain rounded"
-            />
-            <p className="text-sm text-white mt-2">{product.title}</p>
-            <a
-              href={product.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-blue-400 text-xs mt-1"
-            >
-              Zum Produkt
-            </a>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <img src={product.image} alt={product.title} className="w-full h-48 object-cover rounded mb-2" />
+            <p className="text-sm text-white mb-2">{product.title}</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {[1,2,3,4,5,6,7,8,9,10].map((n) => (
+                <span key={n} className="text-xs bg-gray-700 px-2 py-1 rounded">{n}</span>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
               {Object.keys(columns).map((cat) =>
                 cat !== key ? (
                   <button
@@ -134,7 +133,7 @@ export default function ProductPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Amazon-Link hier einfügen..."
+          placeholder="Produktlink einfügen (z. B. Amazon)"
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
