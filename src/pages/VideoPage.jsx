@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ❗ DEIN API-KEY hier vollständig einfügen
+// ✅ DEIN Supabase-Client
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." // 👈 Vollständiger API Key hier
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1OTUyNjI2NX0.6rE3pv0aA7Qp_UhJ-0QDzJp3E7Z_Bf_WJmoAMXXqLpo"
 );
 
 export default function VideoPage() {
@@ -16,7 +16,20 @@ export default function VideoPage() {
     archiv: [],
   });
 
+  // ✅ GESUNDHEITSCHECK – beim Laden
   useEffect(() => {
+    console.log("🔍 Starte Supabase-Check ...");
+    supabase
+      .from("videos")
+      .select()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("❌ Supabase-Fehler:", error);
+        } else {
+          console.log("✅ Supabase-Daten geladen:", data);
+        }
+      });
+
     fetchVideos();
   }, []);
 
@@ -39,18 +52,13 @@ export default function VideoPage() {
   const extractYouTubeId = (url) => {
     try {
       const parsed = new URL(url);
-      const hostname = parsed.hostname;
-      const searchParams = parsed.searchParams;
-
-      if (hostname.includes("youtu.be")) {
+      if (parsed.hostname.includes("youtu.be")) {
         return parsed.pathname.slice(1);
-      } else if (hostname.includes("youtube.com")) {
-        return searchParams.get("v");
+      } else if (parsed.hostname.includes("youtube.com")) {
+        return parsed.searchParams.get("v");
       }
-
-      return null;
     } catch (err) {
-      console.error("❌ Fehler beim Parsen der URL:", err);
+      console.error("❌ Fehler beim Parsen:", err);
       return null;
     }
   };
@@ -68,6 +76,7 @@ export default function VideoPage() {
   const addVideo = async () => {
     const videoId = extractYouTubeId(input);
     console.log("📺 Video ID:", videoId);
+
     if (!videoId) {
       alert("❌ Ungültiger YouTube-Link");
       return;
@@ -75,15 +84,7 @@ export default function VideoPage() {
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    const { data: existing, error: checkError } = await supabase
-      .from("videos")
-      .select()
-      .eq("url", cleanUrl);
-
-    if (checkError) {
-      console.error("❌ Fehler bei Existenzprüfung:", checkError);
-      return;
-    }
+    const { data: existing } = await supabase.from("videos").select().eq("url", cleanUrl);
 
     if (existing?.length > 0) {
       alert("⚠️ Dieses Video ist bereits vorhanden.");
@@ -92,16 +93,17 @@ export default function VideoPage() {
 
     const title = await fetchTitle(cleanUrl);
 
-    const { error: insertError } = await supabase
+    const { error } = await supabase
       .from("videos")
       .insert({ url: cleanUrl, title, category: "pool" });
 
-    if (insertError) {
-      console.error("❌ Fehler beim Speichern:", insertError);
+    if (error) {
+      console.error("❌ Fehler beim Speichern:", error);
+      alert("❌ Fehler beim Speichern. Siehe Konsole.");
       return;
     }
 
-    console.log("✅ Video gespeichert:", cleanUrl);
+    console.log("✅ Video erfolgreich gespeichert!");
     setInput("");
     fetchVideos();
   };
