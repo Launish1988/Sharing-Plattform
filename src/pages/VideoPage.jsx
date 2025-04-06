@@ -34,7 +34,9 @@ export default function VideoPage() {
     const videoId = getYouTubeId(input);
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+    const response = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+    );
     const data = await response.json();
 
     const newVideo = {
@@ -61,7 +63,9 @@ export default function VideoPage() {
 
   const getYouTubeId = (url) => {
     const match = url.match(/[?&]v=([^&#]+)/);
-    return match ? match[1] : null;
+    if (match) return match[1];
+    const alt = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    return alt ? alt[1] : null;
   };
 
   const renderColumn = (title, key) => (
