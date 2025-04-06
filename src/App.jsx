@@ -1,10 +1,11 @@
+// Datei: src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import VideoPage from "./pages/VideoPage";
 import ProductPage from "./pages/ProductPage";
 
-function App() {
+export default function App() {
   return (
     <Router>
       <Routes>
@@ -15,5 +16,3 @@ function App() {
     </Router>
   );
 }
-
-export default App;
