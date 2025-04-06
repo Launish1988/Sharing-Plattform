@@ -1,10 +1,10 @@
-// Datei: src/pages/VideoPage.jsx
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+// 🔐 Supabase-Zugangsdaten
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1"
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 );
 
 export default function VideoPage() {
@@ -16,6 +16,7 @@ export default function VideoPage() {
     archiv: [],
   });
 
+  // ✅ Holt Videos aus Supabase
   const fetchVideos = async () => {
     const { data } = await supabase.from("videos").select();
     if (!data) return;
@@ -30,11 +31,15 @@ export default function VideoPage() {
     fetchVideos();
   }, []);
 
+  // ✅ YouTube-ID auch bei &t= oder embed korrekt extrahieren
   const extractYouTubeId = (url) => {
-    const match = url.match(/(?:youtube\.com.*[?&]v=|youtu\.be\/)([\w-]{11})/);
+    const match = url.match(
+      /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/)|youtu\.be\/)([\w-]{11})/
+    );
     return match ? match[1] : null;
   };
 
+  // ✅ Neues Video speichern
   const addVideo = async () => {
     const videoId = extractYouTubeId(input);
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
@@ -42,14 +47,28 @@ export default function VideoPage() {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     const title = `YouTube Video (${videoId})`;
 
+    const { data: existing } = await supabase
+      .from("videos")
+      .select("*")
+      .eq("url", url);
+
+    if (existing && existing.length > 0) {
+      alert("⚠️ Dieses Video ist bereits vorhanden.");
+      return;
+    }
+
     await supabase.from("videos").insert({ url, title, category: "pool" });
     fetchVideos();
     setInput("");
   };
 
+  // ✅ Video zwischen Bereichen verschieben
   const moveVideo = async (video, toCategory) => {
     if (video.category === toCategory) return;
-    await supabase.from("videos").update({ category: toCategory }).eq("url", video.url);
+    await supabase
+      .from("videos")
+      .update({ category: toCategory })
+      .eq("url", video.url);
     fetchVideos();
   };
 
