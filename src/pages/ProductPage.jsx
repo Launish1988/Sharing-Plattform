@@ -9,7 +9,7 @@ const supabase = createClient(
 
 export default function ProductPage() {
   const [input, setInput] = useState("");
-  const [productColumns, setProductColumns] = useState({
+  const [products, setProducts] = useState({
     pool: [],
     kai: [],
     steffen: [],
@@ -20,17 +20,18 @@ export default function ProductPage() {
     const fetchProducts = async () => {
       const { data } = await supabase.from("products").select();
       if (!data) return;
-      const cols = { pool: [], kai: [], steffen: [], archiv: [] };
+      const grouped = { pool: [], kai: [], steffen: [], archiv: [] };
       data.forEach((p) => {
-        cols[p.category].push(p);
+        grouped[p.category].push(p);
       });
-      setProductColumns(cols);
+      setProducts(grouped);
     };
     fetchProducts();
   }, []);
 
   const addProduct = async () => {
     if (!input) return;
+
     try {
       const proxy = "https://api.allorigins.win/raw?url=";
       const url = encodeURIComponent(input);
@@ -41,67 +42,96 @@ export default function ProductPage() {
       const title =
         doc.querySelector("meta[property='og:title']")?.content ||
         doc.querySelector("title")?.innerText ||
-        "Unbekanntes Produkt";
-      const img =
-        doc.querySelector("meta[property='og:image']")?.content || "";
+        "Unbenannter Artikel";
+
+      const image =
+        doc.querySelector("meta[property='og:image']")?.content ||
+        "";
 
       const newProduct = {
         url: input,
         title,
-        image: img,
-        rating: null,
+        image,
         category: "pool",
-        owner: "user",
+        rating: 0,
       };
 
       await supabase.from("products").insert(newProduct);
-      setProductColumns((prev) => ({ ...prev, pool: [newProduct, ...prev.pool] }));
+      setProducts((prev) => ({
+        ...prev,
+        pool: [newProduct, ...prev.pool],
+      }));
       setInput("");
-    } catch (e) {
-      console.error(e);
-      alert("❌ Produkt konnte nicht geladen werden.");
+    } catch (err) {
+      alert("❌ Artikel konnte nicht geladen werden");
     }
+  };
+
+  const moveProduct = async (product, toCategory) => {
+    await supabase
+      .from("products")
+      .update({ category: toCategory })
+      .eq("url", product.url);
+    setProducts((prev) => {
+      const updated = { ...prev };
+      updated[product.category] = updated[product.category].filter(
+        (p) => p.url !== product.url
+      );
+      updated[toCategory] = [product, ...updated[toCategory]];
+      return updated;
+    });
+  };
+
+  const rateProduct = async (product, rating) => {
+    await supabase
+      .from("products")
+      .update({ rating })
+      .eq("url", product.url);
+    setProducts((prev) => {
+      const updated = { ...prev };
+      updated[product.category] = updated[product.category].map((p) =>
+        p.url === product.url ? { ...p, rating } : p
+      );
+      return updated;
+    });
   };
 
   const renderColumn = (title, key) => (
     <div className="bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
       <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
       <div className="space-y-4">
-        {productColumns[key].map((product, idx) => (
+        {products[key].map((product, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
             {product.image && (
               <img
                 src={product.image}
                 alt={product.title}
-                className="w-full h-40 object-contain mb-2"
+                className="w-full h-40 object-contain rounded"
               />
             )}
-            <a
-              href={product.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-sm text-[#9146FF] hover:underline mb-1"
-            >
-              {product.title}
-            </a>
-            <div className="flex flex-wrap gap-1 mb-2">
+            <p className="text-sm text-white mt-2">{product.title}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {Object.keys(products).map((cat) =>
+                cat !== key ? (
+                  <button
+                    key={cat}
+                    onClick={() => moveProduct(product, cat)}
+                    className="bg-[#9146FF] px-2 py-1 rounded text-sm"
+                  >
+                    Zu {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ) : null
+              )}
+            </div>
+            <div className="flex gap-1 mt-2">
               {[...Array(10)].map((_, i) => (
                 <button
                   key={i}
-                  onClick={async () => {
-                    await supabase
-                      .from("products")
-                      .update({ rating: i + 1 })
-                      .eq("url", product.url);
-                    setProductColumns((prev) => ({
-                      ...prev,
-                      [key]: prev[key].map((p) =>
-                        p.url === product.url ? { ...p, rating: i + 1 } : p
-                      ),
-                    }));
-                  }}
-                  className={`px-1 py-0.5 rounded text-xs ${
-                    product.rating === i + 1 ? "bg-[#9146FF] text-white" : "bg-gray-700"
+                  onClick={() => rateProduct(product, i + 1)}
+                  className={`text-xs px-2 py-1 rounded ${
+                    product.rating === i + 1
+                      ? "bg-[#9146FF]"
+                      : "bg-gray-700 hover:bg-gray-600"
                   }`}
                 >
                   {i + 1}
@@ -130,7 +160,7 @@ export default function ProductPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Produktlink einfügen (z. B. Amazon)"
+          placeholder="Produkt-Link hier einfügen..."
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
