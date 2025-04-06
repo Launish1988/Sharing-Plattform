@@ -50,7 +50,7 @@ export default function VideoPage() {
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const title = `YouTube Video (${videoId})`;
+    const title = await fetchVideoTitle(videoId);
 
     const exists = await supabase.from("videos").select().eq("url", cleanUrl);
     if (exists?.data?.length > 0) {
@@ -61,6 +61,16 @@ export default function VideoPage() {
     await supabase.from("videos").insert({ url: cleanUrl, title, category: "pool" });
     fetchVideos();
     setInput("");
+  };
+
+  const fetchVideoTitle = async (videoId) => {
+    try {
+      const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${videoId}`);
+      const data = await res.json();
+      return data.title || `YouTube Video (${videoId})`;
+    } catch {
+      return `YouTube Video (${videoId})`;
+    }
   };
 
   const moveVideo = async (video, toCategory) => {
