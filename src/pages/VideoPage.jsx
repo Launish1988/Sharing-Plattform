@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// ✅ DEIN Supabase-Client
+// ✅ Supabase Client konfigurieren
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1OTUyNjI2NX0.6rE3pv0aA7Qp_UhJ-0QDzJp3E7Z_Bf_WJmoAMXXqLpo"
@@ -16,7 +16,6 @@ export default function VideoPage() {
     archiv: [],
   });
 
-  // ✅ GESUNDHEITSCHECK – beim Laden
   useEffect(() => {
     console.log("🔍 Starte Supabase-Check ...");
     supabase
@@ -75,7 +74,7 @@ export default function VideoPage() {
 
   const addVideo = async () => {
     const videoId = extractYouTubeId(input);
-    console.log("📺 Video ID:", videoId);
+    console.log("📺 Video ID extrahiert:", videoId);
 
     if (!videoId) {
       alert("❌ Ungültiger YouTube-Link");
@@ -83,8 +82,18 @@ export default function VideoPage() {
     }
 
     const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    console.log("🧼 Bereinigte URL:", cleanUrl);
 
-    const { data: existing } = await supabase.from("videos").select().eq("url", cleanUrl);
+    const { data: existing, error: checkError } = await supabase
+      .from("videos")
+      .select()
+      .eq("url", cleanUrl);
+
+    if (checkError) {
+      console.error("❌ Fehler bei der Duplikatprüfung:", checkError);
+      alert("❌ Fehler bei Duplikatprüfung. Siehe Konsole.");
+      return;
+    }
 
     if (existing?.length > 0) {
       alert("⚠️ Dieses Video ist bereits vorhanden.");
@@ -92,18 +101,20 @@ export default function VideoPage() {
     }
 
     const title = await fetchTitle(cleanUrl);
+    console.log("📄 Gefundener Titel:", title);
 
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from("videos")
       .insert({ url: cleanUrl, title, category: "pool" });
 
-    if (error) {
-      console.error("❌ Fehler beim Speichern:", error);
-      alert("❌ Fehler beim Speichern. Siehe Konsole.");
+    if (insertError) {
+      console.error("❌ Fehler beim Speichern in Supabase:", insertError);
+      alert("❌ Fehler beim Speichern in Supabase. Siehe Konsole.");
       return;
     }
 
     console.log("✅ Video erfolgreich gespeichert!");
+    alert("✅ Video wurde gespeichert!");
     setInput("");
     fetchVideos();
   };
