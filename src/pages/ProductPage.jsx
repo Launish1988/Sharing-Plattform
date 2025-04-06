@@ -31,20 +31,16 @@ export default function ProductPage() {
   const addProduct = async () => {
     if (!input) return;
 
-    const res = await fetch(input);
-    const html = await res.text();
-    const titleMatch = html.match(/<title>(.*?)<\/title>/i);
-    const imgMatch = html.match(/<meta property="og:image" content="(.*?)"/i);
-
-    const title = titleMatch ? titleMatch[1] : "Kein Titel gefunden";
-    const image = imgMatch ? imgMatch[1] : "";
+    const res = await fetch(`https://jsonlink.io/api/extract?url=${input}`);
+    const meta = await res.json();
+    if (!meta || !meta.images?.[0]) return alert("Kein Vorschaubild gefunden");
 
     const newProduct = {
       url: input,
-      title,
-      image,
-      rating: 0,
+      title: meta.title,
+      image: meta.images[0],
       category: "pool",
+      rating: null,
     };
 
     await supabase.from("products").insert(newProduct);
@@ -57,7 +53,6 @@ export default function ProductPage() {
       .from("products")
       .update({ category: toCategory })
       .eq("url", product.url);
-
     setColumns((prev) => {
       const updated = { ...prev };
       updated[product.category] = updated[product.category].filter(
@@ -73,12 +68,12 @@ export default function ProductPage() {
       .from("products")
       .update({ rating: score })
       .eq("url", product.url);
-
     setColumns((prev) => {
       const updated = { ...prev };
-      updated[product.category] = updated[product.category].map((p) =>
+      const list = updated[product.category].map((p) =>
         p.url === product.url ? { ...p, rating: score } : p
       );
+      updated[product.category] = list;
       return updated;
     });
   };
@@ -89,14 +84,14 @@ export default function ProductPage() {
       <div className="space-y-4">
         {columns[key].map((product, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
-            {product.image && (
+            <a href={product.url} target="_blank" rel="noopener noreferrer">
               <img
                 src={product.image}
                 alt={product.title}
-                className="w-full h-48 object-cover rounded"
+                className="w-full h-40 object-cover rounded"
               />
-            )}
-            <p className="text-sm text-white mt-2">{product.title}</p>
+              <p className="text-sm text-white mt-2">{product.title}</p>
+            </a>
             <div className="flex flex-wrap gap-2 mt-2">
               {Object.keys(columns).map((cat) =>
                 cat !== key ? (
@@ -110,18 +105,18 @@ export default function ProductPage() {
                 ) : null
               )}
             </div>
-            <div className="mt-2 flex gap-1 text-xs">
-              {[...Array(10)].map((_, i) => (
+            <div className="mt-2">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <button
-                  key={i}
-                  onClick={() => rateProduct(product, i + 1)}
-                  className={`px-2 py-1 rounded ${
-                    product.rating === i + 1
-                      ? "bg-green-500"
+                  key={n}
+                  onClick={() => rateProduct(product, n)}
+                  className={`px-2 py-1 m-0.5 text-sm rounded ${
+                    product.rating === n
+                      ? "bg-green-600"
                       : "bg-gray-700 hover:bg-gray-600"
                   }`}
                 >
-                  {i + 1}
+                  {n}
                 </button>
               ))}
             </div>
@@ -147,7 +142,7 @@ export default function ProductPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Produkt-Link hier einfügen..."
+          placeholder="Produkt-Link (z. B. Amazon) hier einfügen..."
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
@@ -158,7 +153,7 @@ export default function ProductPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {renderColumn("Pool", "pool")}
         {renderColumn("Kai", "kai")}
         {renderColumn("Steffen", "steffen")}
