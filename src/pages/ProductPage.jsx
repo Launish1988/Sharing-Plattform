@@ -1,9 +1,10 @@
+// Datei: src/pages/ProductPage.jsx
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   "https://kmbdieietszbfsbrldtx.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImttYmRpZWlldHN6YmZzYnJsZHR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5NTAyNjUsImV4cCI6MjA1"
 );
 
 export default function ProductPage() {
@@ -20,32 +21,47 @@ export default function ProductPage() {
       const { data } = await supabase.from("products").select();
       if (!data) return;
       const cols = { pool: [], kai: [], steffen: [], archiv: [] };
-      data.forEach((p) => {
-        cols[p.category].push(p);
-      });
+      data.forEach((p) => cols[p.category].push(p));
       setColumns(cols);
     };
     fetchProducts();
   }, []);
 
+  const sanitizeAmazonUrl = (url) => {
+    const match = url.match(/(https:\/\/www\.amazon\.de\/dp\/[A-Z0-9]+)/);
+    return match ? match[1] : url;
+  };
+
   const addProduct = async () => {
     if (!input) return;
+    try {
+      const cleanUrl = sanitizeAmazonUrl(input);
+      const proxy = "https://api.allorigins.win/raw?url=";
+      const htmlText = await fetch(`${proxy}${encodeURIComponent(cleanUrl)}`).then(res => res.text());
 
-    const res = await fetch(`https://jsonlink.io/api/extract?url=${input}`);
-    const meta = await res.json();
-    if (!meta || !meta.images?.[0]) return alert("Kein Vorschaubild gefunden");
+      const doc = new DOMParser().parseFromString(htmlText, "text/html");
+      const title =
+        doc.querySelector("meta[property='og:title']")?.content ||
+        doc.querySelector("title")?.innerText ||
+        "Unbekannter Titel";
 
-    const newProduct = {
-      url: input,
-      title: meta.title,
-      image: meta.images[0],
-      category: "pool",
-      rating: null,
-    };
+      const image =
+        doc.querySelector("meta[property='og:image']")?.content ||
+        "https://via.placeholder.com/150";
 
-    await supabase.from("products").insert(newProduct);
-    setColumns((prev) => ({ ...prev, pool: [newProduct, ...prev.pool] }));
-    setInput("");
+      const newProduct = {
+        url: cleanUrl,
+        title,
+        image,
+        category: "pool",
+      };
+
+      await supabase.from("products").insert(newProduct);
+      setColumns((prev) => ({ ...prev, pool: [newProduct, ...prev.pool] }));
+      setInput("");
+    } catch (err) {
+      alert("❌ Produkt konnte nicht geladen werden.");
+    }
   };
 
   const moveProduct = async (product, toCategory) => {
@@ -63,34 +79,25 @@ export default function ProductPage() {
     });
   };
 
-  const rateProduct = async (product, score) => {
-    await supabase
-      .from("products")
-      .update({ rating: score })
-      .eq("url", product.url);
-    setColumns((prev) => {
-      const updated = { ...prev };
-      const list = updated[product.category].map((p) =>
-        p.url === product.url ? { ...p, rating: score } : p
-      );
-      updated[product.category] = list;
-      return updated;
-    });
-  };
-
   const renderColumn = (title, key) => (
     <div className="bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
       <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
       <div className="space-y-4">
         {columns[key].map((product, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
-            <a href={product.url} target="_blank" rel="noopener noreferrer">
-              <img
-                src={product.image}
-                alt={product.title}
-                className="w-full h-40 object-cover rounded"
-              />
-              <p className="text-sm text-white mt-2">{product.title}</p>
+            <img
+              src={product.image}
+              alt={product.title}
+              className="w-full h-48 object-contain rounded"
+            />
+            <p className="text-sm text-white mt-2">{product.title}</p>
+            <a
+              href={product.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-blue-400 text-xs mt-1"
+            >
+              Zum Produkt
             </a>
             <div className="flex flex-wrap gap-2 mt-2">
               {Object.keys(columns).map((cat) =>
@@ -104,21 +111,6 @@ export default function ProductPage() {
                   </button>
                 ) : null
               )}
-            </div>
-            <div className="mt-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => rateProduct(product, n)}
-                  className={`px-2 py-1 m-0.5 text-sm rounded ${
-                    product.rating === n
-                      ? "bg-green-600"
-                      : "bg-gray-700 hover:bg-gray-600"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
             </div>
           </div>
         ))}
@@ -142,7 +134,7 @@ export default function ProductPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Produkt-Link (z. B. Amazon) hier einfügen..."
+          placeholder="Amazon-Link hier einfügen..."
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
