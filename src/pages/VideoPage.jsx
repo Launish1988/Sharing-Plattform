@@ -29,20 +29,22 @@ export default function VideoPage() {
     fetchVideos();
   }, []);
 
+  const extractVideoId = (url) => {
+    const match = url.match(
+      /(?:youtube\.com\/.*v=|youtu\.be\/)([^&\n?#]+)/i
+    );
+    return match ? match[1] : null;
+  };
+
   const addVideo = async () => {
     if (!input) return;
-    const videoId = getYouTubeId(input);
+    const videoId = extractVideoId(input);
     if (!videoId) return alert("❌ Ungültiger YouTube-Link");
 
-    const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-    const data = await response.json();
+    const title = `YouTube Video ${videoId}`;
+    const url = `https://www.youtube.com/watch?v=${videoId}`;
 
-    const newVideo = {
-      url: input,
-      title: data.title,
-      videoId,
-      category: "pool",
-    };
+    const newVideo = { url, videoId, title, category: "pool" };
 
     await supabase.from("videos").insert(newVideo);
     setColumns((prev) => ({ ...prev, pool: [newVideo, ...prev.pool] }));
@@ -59,11 +61,6 @@ export default function VideoPage() {
     });
   };
 
-  const getYouTubeId = (url) => {
-    const match = url.match(/[?&]v=([^&#]+)/);
-    return match ? match[1] : null;
-  };
-
   const renderColumn = (title, key) => (
     <div className="bg-[#1f1f23] p-4 rounded-lg min-h-[300px]">
       <h3 className="text-lg text-[#9146FF] font-semibold mb-2">{title}</h3>
@@ -71,16 +68,14 @@ export default function VideoPage() {
         {columns[key].map((video, idx) => (
           <div key={idx} className="bg-gray-900 p-3 rounded-lg">
             <iframe
-              width="100%"
-              height="200"
+              className="w-full h-48 rounded mb-2"
               src={`https://www.youtube.com/embed/${video.videoId}`}
               title={video.title}
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             ></iframe>
-            <p className="text-sm text-white mt-2">{video.title}</p>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <p className="text-sm text-white mb-2">{video.title}</p>
+            <div className="flex flex-wrap gap-2">
               {Object.keys(columns).map((cat) =>
                 cat !== key ? (
                   <button
@@ -102,7 +97,7 @@ export default function VideoPage() {
   return (
     <div className="min-h-screen bg-[#0e0e10] text-white p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-[#9146FF]">🎥 Video-Bereich</h2>
+        <h2 className="text-3xl font-bold text-[#9146FF]">🎬 Video-Bereich</h2>
         <a
           href="/"
           className="text-white text-sm hover:underline bg-[#9146FF] px-3 py-1 rounded"
@@ -115,7 +110,7 @@ export default function VideoPage() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="YouTube-Link hier einfügen..."
+          placeholder="YouTube-Link hier einfügen…"
           className="w-full px-4 py-2 rounded bg-gray-800 text-white"
         />
         <button
